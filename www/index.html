@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="color-scheme" content="dark" />
+<title>Bozkurt Arcade</title>
+<style>
+  :root{
+    /* ---- Renk paleti (RetroArch XMB referanslı) ---- */
+    --bg-top:#4d84cf;
+    --bg-upper:#2f63b0;
+    --bg-lower:#0d2c57;
+    --bg-bottom:#050b1a;
+    --ink:#f3f7fd;
+    --ink-dim:rgba(243,247,253,0.62);
+    --ink-faint:rgba(243,247,253,0.34);
+    --focus-bg:#ffffff;
+    --focus-ink:#0a1f3d;
+    --line:rgba(255,255,255,0.14);
+    --warn:#e3a83d;
+    --danger:#e2645f;
+    --good:#5bc98a;
+    --panel:rgba(6,18,40,0.86);
+
+    --icon-size: 64px;
+    --icon-size-active: 84px;
+    --row-gap: 46px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; padding:0; }
+  body{
+    background:var(--bg-bottom);
+    color:var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow:hidden;
+    -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button{ font-family:inherit; }
+
+  #app{ position:fixed; inset:0; display:flex; flex-direction:column; }
+
+  /* ---- Arka plan: üstten alta gradient + dalga deseni ---- */
+  #bg{
+    position:fixed; inset:0; z-index:0;
+    background:
+      linear-gradient(180deg,
+        var(--bg-top) 0%,
+        var(--bg-upper) 34%,
+        var(--bg-lower) 68%,
+        var(--bg-bottom) 100%);
+    transition: filter .4s ease;
+  }
+  #bg svg{ position:absolute; bottom:0; left:0; width:100%; height:46%; opacity:.5; }
+  #bg.dim{ filter:brightness(.35) saturate(.7); }
+
+  /* ---- Üst bar ---- */
+  #topbar{
+    position:relative; z-index:2;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: calc(22px + var(--safe-top)) calc(40px + var(--safe-right)) 0 calc(40px + var(--safe-left));
+    font-size:20px; font-weight:500; letter-spacing:.2px;
+  }
+  #page-title{ color:var(--ink); }
+  #status-right{ display:flex; align-items:center; gap:18px; color:var(--ink-dim); font-size:17px; }
+  #status-right .players{ display:flex; align-items:center; gap:6px; }
+
+  /* ---- XMB ikon satırı ---- */
+  #xmb-row{
+    position:relative; z-index:2;
+    display:flex; align-items:flex-end; gap:var(--row-gap);
+    padding: 54px calc(40px + var(--safe-right)) 0 calc(40px + var(--safe-left));
+    overflow:visible;
+    transition: transform .28s cubic-bezier(.2,.8,.3,1);
+  }
+  .xmb-icon{
+    flex:0 0 auto;
+    width:var(--icon-size); height:var(--icon-size);
+    border-radius:16px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,0.08);
+    border:1px solid var(--line);
+    color:var(--ink);
+    transition: all .18s ease;
+    opacity:.55;
+  }
+  .xmb-icon svg{ width:56%; height:56%; }
+  .xmb-icon.current{
+    width:var(--icon-size-active); height:var(--icon-size-active);
+    opacity:1;
+  }
+  .xmb-icon.focused{
+    background:var(--focus-bg); color:var(--focus-ink);
+    opacity:1;
+    box-shadow: 0 8px 28px rgba(0,0,0,.35);
+  }
+
+  /* ---- İçerik listesi ---- */
+  #xmb-list{
+    position:relative; z-index:2;
+    flex:1;
+    padding: 30px calc(40px + var(--safe-right)) 0 calc(40px + var(--safe-left));
+    display:flex; flex-direction:column;
+    min-height:0;
+  }
+  #list-heading{
+    display:flex; align-items:baseline; gap:14px; margin-bottom:6px;
+  }
+  #list-heading .icon-wrap{ width:40px; height:40px; flex:0 0 auto; opacity:.9; }
+  #list-heading .icon-wrap svg{ width:100%; height:100%; }
+  #list-heading .name{ font-size:26px; font-weight:600; }
+  #list-heading .desc{ font-size:15px; color:var(--ink-dim); }
+
+  #list-items{
+    margin-top:18px;
+    display:flex; flex-direction:column;
+    overflow-y:auto;
+    max-height: 46vh;
+    scrollbar-width:none;
+  }
+  #list-items::-webkit-scrollbar{ display:none; }
+
+  .list-item{
+    display:flex; align-items:center; gap:18px;
+    padding:11px 16px;
+    border-radius:10px;
+    color:var(--ink-dim);
+    cursor:pointer;
+  }
+  .list-item .file-icon{ width:26px; height:26px; flex:0 0 auto; opacity:.85; }
+  .list-item .file-icon svg{ width:100%; height:100%; }
+  .list-item .meta{ display:flex; flex-direction:column; min-width:0; }
+  .list-item .meta .title{ font-size:19px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .list-item .meta .sub{ font-size:13px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .list-item.focused{
+    background:rgba(255,255,255,0.08);
+    color:var(--ink);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .list-item .fav-mark{ margin-left:auto; opacity:.85; width:18px; height:18px; flex:0 0 auto; }
+  .list-item .fav-mark svg{ width:100%; height:100%; }
+
+  #list-empty{
+    display:flex; align-items:center; gap:14px;
+    color:var(--ink-dim); font-size:17px; padding:11px 16px;
+  }
+  #list-empty svg{ width:24px; height:24px; opacity:.8; }
+
+  /* ---- Performans uyarı şeridi ---- */
+  #perf-banner{
+    position:relative; z-index:2;
+    margin: 14px calc(40px + var(--safe-right)) 0 calc(40px + var(--safe-left));
+    padding:10px 16px;
+    border-radius:10px;
+    background:rgba(227,168,61,0.14);
+    border:1px solid rgba(227,168,61,0.4);
+    color:#ffd98f;
+    font-size:14px;
+    display:flex; align-items:center; gap:10px;
+    max-width:640px;
+  }
+  #perf-banner svg{ width:18px; height:18px; flex:0 0 auto; }
+
+  /* ---- Alt menü (oyun seçildiğinde) ---- */
+  #submenu-overlay{
+    position:fixed; inset:0; z-index:20;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(2,8,20,0.55);
+  }
+  .submenu-panel{
+    width:min(420px, 86vw);
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:22px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .submenu-title{ font-size:20px; font-weight:600; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .submenu-sub{ font-size:13px; color:var(--ink-dim); margin-bottom:16px; }
+  .submenu-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+  .submenu-item{
+    display:flex; align-items:center; gap:14px;
+    padding:12px 14px; border-radius:10px;
+    color:var(--ink-dim); font-size:17px;
+  }
+  .submenu-item svg{ width:22px; height:22px; flex:0 0 auto; }
+  .submenu-item.focused{ background:var(--focus-bg); color:var(--focus-ink); }
+  .submenu-item.disabled{ opacity:.35; }
+
+  /* ---- Emülatör ekranı ---- */
+  #emulator-overlay{
+    position:fixed; inset:0; z-index:30;
+    background:#000;
+    display:flex; flex-direction:column;
+  }
+  #game{ flex:1; min-height:0; }
+  #emu-topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px calc(20px + var(--safe-right)) 10px calc(20px + var(--safe-left));
+    background:rgba(0,0,0,.6);
+    font-size:14px; color:var(--ink-dim);
+  }
+
+  /* ---- Toast bildirimleri ---- */
+  #toast-stack{
+    position:fixed; z-index:40;
+    top: calc(20px + var(--safe-top)); right: calc(20px + var(--safe-right));
+    display:flex; flex-direction:column; gap:10px;
+    align-items:flex-end;
+  }
+  .toast{
+    display:flex; align-items:center; gap:10px;
+    background:var(--panel); border:1px solid var(--line);
+    padding:12px 16px; border-radius:12px;
+    font-size:14px; color:var(--ink);
+    box-shadow:0 10px 30px rgba(0,0,0,.4);
+    animation: toast-in .22s ease;
+    max-width:340px;
+  }
+  .toast svg{ width:20px; height:20px; flex:0 0 auto; }
+  .toast.leaving{ animation: toast-out .22s ease forwards; }
+  @keyframes toast-in{ from{ opacity:0; transform:translateY(-8px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes toast-out{ from{ opacity:1; } to{ opacity:0; transform:translateY(-8px); } }
+
+  /* ---- Alt ipucu çubuğu (buton rehberi) ---- */
+  #hintbar{
+    position:relative; z-index:2;
+    display:flex; align-items:center; gap:26px;
+    padding: 14px calc(40px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(40px + var(--safe-left));
+    font-size:14px; color:var(--ink-dim);
+  }
+  .hint{ display:flex; align-items:center; gap:8px; }
+  .hint svg{ width:22px; height:22px; flex:0 0 auto; }
+  .hint span{ white-space:nowrap; }
+
+  [hidden]{ display:none !important; }
+
+  :focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
+  }
+</style>
+</head>
+<body>
+  <div id="app">
+    <div id="bg">
+      <svg viewBox="0 0 1000 300" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0,120 C220,180 360,60 600,110 C800,150 900,90 1000,130 L1000,300 L0,300 Z" fill="rgba(255,255,255,0.05)"/>
+        <path d="M0,170 C240,110 420,220 660,160 C820,120 920,190 1000,170 L1000,300 L0,300 Z" fill="rgba(255,255,255,0.04)"/>
+      </svg>
+    </div>
+
+    <header id="topbar">
+      <div id="page-title">Bozkurt Arcade</div>
+      <div id="status-right">
+        <span class="players" id="players-indicator"></span>
+        <span id="clock"></span>
+      </div>
+    </header>
+
+    <nav id="xmb-row" aria-label="Sistemler"></nav>
+
+    <section id="xmb-list" aria-label="İçerik listesi">
+      <div id="list-heading">
+        <span class="icon-wrap" id="heading-icon"></span>
+        <span class="name" id="heading-name"></span>
+        <span class="desc" id="heading-desc"></span>
+      </div>
+      <div id="list-items"></div>
+      <div id="list-empty" hidden></div>
+    </section>
+
+    <div id="perf-banner" hidden></div>
+
+    <div id="submenu-overlay" hidden>
+      <div class="submenu-panel">
+        <div class="submenu-title" id="submenu-title"></div>
+        <div class="submenu-sub" id="submenu-sub"></div>
+        <ul class="submenu-list" id="submenu-list"></ul>
+      </div>
+    </div>
+
+    <div id="emulator-overlay" hidden>
+      <div id="emu-topbar">
+        <span id="emu-game-name"></span>
+        <span id="emu-hint">Menü için Select / Başlat tuşuna basın</span>
+      </div>
+      <div id="game"></div>
+    </div>
+
+    <div id="toast-stack"></div>
+
+    <footer id="hintbar"></footer>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
