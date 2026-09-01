@@ -1,0 +1,18 @@
+{
+  "name": "bozkurt-arcade",
+  "version": "0.1.0",
+  "description": "Android TV odaklı XMB tarzı retro emülatör arayüzü (NES, SNES, GBA, Genesis, PS1, N64, Atari 2600/7800, Neo Geo).",
+  "scripts": {
+    "sync": "cap sync android",
+    "open:android": "cap open android",
+    "build:android": "cd android && ./gradlew assembleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/filesystem": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}

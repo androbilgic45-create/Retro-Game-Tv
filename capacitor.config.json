@@ -1,0 +1,12 @@
+{
+  "appId": "com.androbilgic.bozkurtarcade",
+  "appName": "Bozkurt Arcade",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
