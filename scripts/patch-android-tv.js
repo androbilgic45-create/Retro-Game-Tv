@@ -49,3 +49,18 @@ if(!xml.includes('android:banner')){
 
 fs.writeFileSync(manifestPath, xml, "utf8");
 console.log("AndroidManifest.xml Android TV için güncellendi.");
+// 4) TV banner drawable'ını üretilen Android projesine kopyala.
+// `cap add android` her seferinde projeyi sıfırdan oluşturduğu için bu
+// dosya repo kökünde (android-res/) tutuluyor ve build sırasında buraya
+// kopyalanıyor; android/ klasörünün kendisi repoya commit edilmiyor.
+const bannerSrc = path.join(__dirname, "..", "android-res", "tv", "drawable", "tv_banner.xml");
+const drawableDir = path.join(__dirname, "..", "android", "app", "src", "main", "res", "drawable");
+const bannerDest = path.join(drawableDir, "tv_banner.xml");
+
+if(fs.existsSync(bannerSrc)){
+  fs.mkdirSync(drawableDir, { recursive: true });
+  fs.copyFileSync(bannerSrc, bannerDest);
+  console.log("TV banner drawable kopyalandı: " + bannerDest);
+}else{
+  console.warn("Uyarı: android-res/tv/drawable/tv_banner.xml bulunamadı, banner eklenemedi.");
+}
