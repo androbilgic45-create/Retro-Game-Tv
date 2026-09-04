@@ -44,6 +44,12 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleRelease
 
+      - name: Build-tools sürümünü kur
+        run: |
+          BUILD_TOOLS_VERSION="34.0.0"
+          echo "BUILD_TOOLS_VERSION=$BUILD_TOOLS_VERSION" >> $GITHUB_ENV
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;$BUILD_TOOLS_VERSION"
+
       - name: APK'yı imzala
         uses: r0adkll/sign-android-release@v1
         id: sign
@@ -53,6 +59,7 @@ jobs:
           alias: ${{ secrets.ANDROID_KEY_ALIAS }}
           keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOLS_VERSION }}
 
       - name: İmzalı APK'yı yükle
         uses: actions/upload-artifact@v4
