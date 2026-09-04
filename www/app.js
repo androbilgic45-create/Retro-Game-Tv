@@ -27,6 +27,12 @@ const ROOT_HINT_PATH = `Android/data/${APP_ID}/files/roms`;
 // EmulatorJS CDN — build zamanında internet gerekmez, sadece cihazda çalışırken.
 const EJS_CDN = "https://cdn.emulatorjs.org/stable/data/";
 
+// Capacitor Filesystem'in "Directory" enum'ı normalde npm paketinden import
+// edilir; window.Capacitor.Plugins altında hazır gelmez (script-tag/bundlersız
+// kurulumda Directory tanımsız kalıyordu — bu hataya yol açan asıl sebep buydu).
+// Native tarafın beklediği ham string değeri burada elle veriyoruz.
+const CAP_DIR_EXTERNAL = "EXTERNAL";
+
 /* --------------------------------------------------------------------
    1. SİSTEM TANIMLARI
    -------------------------------------------------------------------- */
@@ -181,10 +187,10 @@ const RomScanner = {
   },
 
   async _scanNative(system){
-    const { Filesystem, Directory } = window.Capacitor.Plugins;
+    const { Filesystem } = window.Capacitor.Plugins;
     const path = `roms/${system.folder}`;
     try{
-      const res = await Filesystem.readdir({ path, directory: Directory.External });
+      const res = await Filesystem.readdir({ path, directory: CAP_DIR_EXTERNAL });
       const files = (res.files || [])
         .filter(f => {
           const nm = (f.name || f).toLowerCase();
@@ -213,10 +219,10 @@ const RomScanner = {
 
   async _ensureFolders(){
     if(!this.hasCapacitorFilesystem()) return;
-    const { Filesystem, Directory } = window.Capacitor.Plugins;
+    const { Filesystem } = window.Capacitor.Plugins;
     for(const sys of SYSTEMS){
       try{
-        await Filesystem.mkdir({ path:`roms/${sys.folder}`, directory:Directory.External, recursive:true });
+        await Filesystem.mkdir({ path:`roms/${sys.folder}`, directory:CAP_DIR_EXTERNAL, recursive:true });
       }catch(e){
         // "Zaten var" hatası beklenir ve normaldir; başka bir şeyse kaydet.
         const msg = (e && e.message) || String(e);
