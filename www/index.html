@@ -206,6 +206,11 @@
     background:rgba(0,0,0,.6);
     font-size:14px; color:var(--ink-dim);
   }
+  #pause-overlay{
+    position:fixed; inset:0; z-index:35;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(2,8,20,0.6);
+  }
 
   /* ---- Toast bildirimleri ---- */
   #toast-stack{
@@ -293,6 +298,14 @@
         <span id="emu-hint">Menü için Select / Başlat tuşuna basın</span>
       </div>
       <div id="game"></div>
+
+      <div id="pause-overlay" hidden>
+        <div class="submenu-panel">
+          <div class="submenu-title">Duraklatıldı</div>
+          <div class="submenu-sub">Bir seçenek belirleyin</div>
+          <ul class="submenu-list" id="pause-list"></ul>
+        </div>
+      </div>
     </div>
 
     <div id="toast-stack"></div>
