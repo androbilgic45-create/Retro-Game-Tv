@@ -24,7 +24,7 @@ jobs:
           java-version: 17
 
       - name: Bağımlılıkları yükle
-        run: npm ci
+        run: npm install
 
       - name: Android projesi yoksa oluştur
         run: |
