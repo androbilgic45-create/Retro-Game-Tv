@@ -396,8 +396,16 @@ const GamepadManager = {
    -------------------------------------------------------------------- */
 
 const KeyboardManager = {
-  init(onAction, onInputTypeChange){
+  // shouldHandle(): true iken tüm tuşlar bize ait (XMB gezinme veya duraklatma
+  // menüsü açık); false iken sadece Escape/Backspace işlenir (oyunu duraklatma
+  // menüsünü açmak için) — diğer tuşlar (ok tuşları, Enter) olduğu gibi
+  // EmulatorJS'e/oyuna bırakılır, aksi halde klavye ile oynanan oyunlarda
+  // girişleri biz yutardık.
+  init(onAction, onInputTypeChange, shouldHandle){
     window.addEventListener("keydown", (e) => {
+      const isEscape = (e.key === "Backspace" || e.key === "Escape");
+      if(!shouldHandle() && !isEscape) return;
+
       let handled = true;
       switch(e.key){
         case "ArrowUp": onAction("up"); break;
@@ -430,7 +438,7 @@ const App = {
   submenuItems: [],
   submenuIndex: 0,
   submenuRom: null,
-  activeInputType: "generic", // 'generic' | 'xbox' | 'playstation' | 'tv'
+  activeInputType: "tv", // 'generic' | 'xbox' | 'playstation' | 'tv' — başlangıçta TV/klavye varsayılır
   clockTimer: null,
 };
 
@@ -514,6 +522,7 @@ const el = {
   clock: document.getElementById("clock"),
   toastStack: document.getElementById("toast-stack"),
   pageTitle: document.getElementById("page-title"),
+  emuHint: document.getElementById("emu-hint"),
 };
 
 function renderRow(){
@@ -668,8 +677,21 @@ function hint(iconKey, label){
 }
 
 function renderPlayers(){
-  el.playersIndicator.innerHTML = GamepadManager.hasAny()
-    ? `${ICON.gamepad}<span>${GamepadManager.players.size}</span>` : "";
+  // Sağ üstte her zaman aktif giriş yöntemini gösterir — sadece fiziksel
+  // kumanda bağlıyken değil, klavye/TV kumandası kullanılırken de.
+  const kindLabel = {
+    playstation:"PlayStation Kumandası",
+    xbox:"Xbox Kumandası",
+    generic:"Kumanda",
+    tv:"Klavye / TV Kumandası",
+  }[App.activeInputType] || "Klavye / TV Kumandası";
+
+  if(GamepadManager.hasAny()){
+    const extra = GamepadManager.players.size > 1 ? ` (${GamepadManager.players.size} kumanda)` : "";
+    el.playersIndicator.innerHTML = `${ICON.gamepad}<span>${kindLabel}${extra}</span>`;
+  }else{
+    el.playersIndicator.innerHTML = `${ICON.tvOk}<span>${kindLabel}</span>`;
+  }
 }
 
 function escapeHtml(s){
@@ -919,26 +941,48 @@ function showToast(iconKey, message){
    12. EMÜLATÖR BAŞLATMA (EmulatorJS)
    -------------------------------------------------------------------- */
 
-function launchEmulator(rom, opts){
+async function launchEmulator(rom, opts){
   const overlay = document.getElementById("emulator-overlay");
   const gameDiv = document.getElementById("game");
   const nameEl = document.getElementById("emu-game-name");
   gameDiv.innerHTML = "";
   nameEl.textContent = rom.name;
   overlay.hidden = false;
+  el.emuHint.textContent = "Yükleniyor…";
+
+  const gameUrl = await resolveRomUrl(rom);
+  if(!gameUrl){
+    showToast("warn", "ROM dosyasının yolu çözümlenemedi.");
+    overlay.hidden = true;
+    return;
+  }
 
   window.EJS_player = "#game";
   window.EJS_core = rom.system.core;
   window.EJS_pathToData = EJS_CDN;
-  window.EJS_gameUrl = resolveRomUrl(rom);
+  window.EJS_gameUrl = gameUrl;
   window.EJS_gameName = rom.name;
   window.EJS_startOnLoaded = true;
   window.EJS_backgroundColor = "#000000";
   window.EJS_language = "tr-TR";
   window.EJS_loadStateOnStart = !!opts.resume;
 
+  // EmulatorJS'in kendi menü çubuğu zaten Kaydet/Yükle/Ayarlar (kumanda
+  // eşleme dahil, sistemin kendi çekirdeğine göre) ve Çıkış'ı içeriyor —
+  // bunları ayrıca kendimiz inşa etmiyoruz, sadece görünür olduklarından
+  // ve "Çıkış"ın bizim XMB'ye düzgün dönmesinden emin oluyoruz.
+  window.EJS_Buttons = {
+    playPause: true, restart: true, mute: true, settings: true,
+    fullscreen: true, saveState: true, loadState: true,
+    screenRecord: false, gamepad: true, cheat: true, volume: true,
+    saveSavFiles: true, loadSavFiles: true, quickSave: true, quickLoad: true,
+    screenshot: false, cacheManager: false,
+    exitEmulation: { visible:true, callback: () => exitEmulator() },
+  };
+
   window.EJS_onGameStart = function(){
     Store.addHistory({ systemId: rom.systemId, romPath: rom.romPath, name: rom.name });
+    el.emuHint.textContent = "Menü için ekranın üstündeki EmulatorJS çubuğunu kullanın";
   };
   window.EJS_onSaveState = function(){
     Store.markSave(rom.systemId, rom.romPath, true);
@@ -947,33 +991,99 @@ function launchEmulator(rom, opts){
   const script = document.createElement("script");
   script.src = EJS_CDN + "loader.js";
   document.body.appendChild(script);
-
-  // Çıkış: EmulatorJS kendi menüsünde "Exit" seçeneği sunar; burada ayrıca
-  // donanım geri tuşu / Escape ile XMB'ye dönüşü de destekliyoruz.
-  App._emuEscHandler = (e) => {
-    if(e.key === "Escape"){ exitEmulator(); }
-  };
-  window.addEventListener("keydown", App._emuEscHandler);
 }
 
 function exitEmulator(){
   const overlay = document.getElementById("emulator-overlay");
   overlay.hidden = true;
   document.getElementById("game").innerHTML = "";
-  window.removeEventListener("keydown", App._emuEscHandler);
+  closePauseMenu();
   refreshVirtualLists();
   renderAll();
 }
 
-function resolveRomUrl(rom){
-  // Native ortamda Capacitor Filesystem yolunu EmulatorJS'in okuyabileceği
-  // bir dosya URI'sine çeviriyoruz (Capacitor.convertFileSrc).
-  if(window.Capacitor && window.Capacitor.convertFileSrc){
-    return window.Capacitor.convertFileSrc(rom.romPath);
+async function resolveRomUrl(rom){
+  // Capacitor Filesystem'in kendi "directory-göreli" yolunu (roms/gba/x.gba)
+  // önce gerçek bir native dosya URI'sine çeviriyoruz (getUri), ardından bunu
+  // EmulatorJS'in/WebView'ün okuyabileceği bir http(s) benzeri adrese
+  // dönüştürüyoruz (convertFileSrc). Önceki sürümde bu ilk adım eksikti;
+  // EmulatorJS geçersiz bir yol aldığı için oyun sessizce başlamıyordu.
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem){
+    try{
+      const { Filesystem } = window.Capacitor.Plugins;
+      const res = await Filesystem.getUri({ directory: CAP_DIR_EXTERNAL, path: rom.romPath });
+      if(window.Capacitor.convertFileSrc) return window.Capacitor.convertFileSrc(res.uri);
+      return res.uri;
+    }catch(e){
+      console.error("ROM URI çözümlenemedi:", e);
+      return null;
+    }
   }
   // Tarayıcı önizlemesinde gerçek ROM verisi yok; bu yalnızca arayüz akışını
   // test etmek içindir, dosya bulunamayacağı için EmulatorJS hata gösterecektir.
   return rom.romPath;
+}
+
+/* --------------------------------------------------------------------
+   12b. DURAKLATMA MENÜSÜ (oyun içinde Geri/Escape ile açılır)
+   -------------------------------------------------------------------- */
+
+function togglePauseMenu(){
+  if(App._pauseOpen) closePauseMenu(); else openPauseMenu();
+}
+
+function openPauseMenu(){
+  App._pauseOpen = true;
+  App._pauseIndex = 0;
+  App._pauseRom = App._pauseRom || null;
+  renderPauseMenu();
+  document.getElementById("pause-overlay").hidden = false;
+}
+
+function closePauseMenu(){
+  App._pauseOpen = false;
+  const p = document.getElementById("pause-overlay");
+  if(p) p.hidden = true;
+}
+
+const PAUSE_ITEMS = [
+  { key:"resume", label:"Devam Et", icon:"resume" },
+  { key:"save",   label:"Durumu Kaydet", icon:"info" },
+  { key:"load",   label:"Son Durumu Yükle", icon:"folder" },
+  { key:"exit",   label:"Ana Menüye Dön", icon:"tvBack" },
+];
+
+function renderPauseMenu(){
+  const list = document.getElementById("pause-list");
+  if(!list) return;
+  list.innerHTML = "";
+  PAUSE_ITEMS.forEach((it, i) => {
+    const li = document.createElement("li");
+    li.className = "submenu-item" + (i === App._pauseIndex ? " focused" : "");
+    li.innerHTML = `${ICON[it.icon]}<span>${escapeHtml(it.label)}</span>`;
+    list.appendChild(li);
+  });
+}
+
+function runPauseAction(key){
+  const emu = window.EJS_emulator;
+  if(key === "resume"){
+    closePauseMenu();
+  }else if(key === "save"){
+    try{
+      emu && emu.gameManager && emu.gameManager.saveState();
+      showToast("info", "Durum kaydedildi");
+    }catch(e){ showToast("warn", "Kaydetme başarısız"); }
+    closePauseMenu();
+  }else if(key === "load"){
+    try{
+      emu && emu.gameManager && emu.gameManager.loadState();
+      showToast("folder", "Kayıt yüklendi");
+    }catch(e){ showToast("warn", "Yükleme başarısız — kayıtlı durum olmayabilir"); }
+    closePauseMenu();
+  }else if(key === "exit"){
+    exitEmulator();
+  }
 }
 
 /* --------------------------------------------------------------------
@@ -1010,16 +1120,43 @@ function initInputs(){
 
   KeyboardManager.init(
     (action) => {
-      if(!document.getElementById("emulator-overlay").hidden) return;
-      handleAction(action);
+      const overlay = document.getElementById("emulator-overlay");
+      if(overlay.hidden){ handleAction(action); return; }
+      handleEmulatorAction(action);
     },
     (type) => {
       if(App.activeInputType !== type){
         App.activeInputType = type;
         renderHints();
+        renderPlayers();
       }
+    },
+    () => {
+      const overlay = document.getElementById("emulator-overlay");
+      return overlay.hidden || App._pauseOpen; // XMB'deyken veya duraklatma menüsü açıkken tüm tuşlar bize ait
     }
   );
+}
+
+function handleEmulatorAction(action){
+  if(App._pauseOpen){
+    if(action === "up"){
+      App._pauseIndex = (App._pauseIndex - 1 + PAUSE_ITEMS.length) % PAUSE_ITEMS.length;
+      renderPauseMenu();
+    }else if(action === "down"){
+      App._pauseIndex = (App._pauseIndex + 1) % PAUSE_ITEMS.length;
+      renderPauseMenu();
+    }else if(action === "confirm"){
+      runPauseAction(PAUSE_ITEMS[App._pauseIndex].key);
+    }else if(action === "back"){
+      closePauseMenu();
+    }
+    return;
+  }
+  // Oyun oynanırken sadece Geri/Escape duraklatma menüsünü açar; diğer
+  // tuşlar (ok tuşları, Enter) KeyboardManager tarafından zaten EJS'e
+  // bırakılıyor, buraya hiç düşmüyor.
+  if(action === "back"){ openPauseMenu(); }
 }
 
 async function init(){
