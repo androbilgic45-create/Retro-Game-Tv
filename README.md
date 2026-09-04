@@ -21,7 +21,7 @@ PlayStation, Nintendo 64, Atari 2600/7800 ve Neo Geo'yu destekler.
 Uygulama ilk açılışta cihazda şu klasörleri oluşturur:
 
 ```
-Android/media/com.androbilgic.bozkurtarcade/roms/
+Android/data/com.androbilgic.bozkurtarcade/files/roms/
 ├── nes/
 ├── snes/
 ├── gba/
@@ -36,12 +36,15 @@ Android/media/com.androbilgic.bozkurtarcade/roms/
 Kullanıcı sitenden indirdiği ROM dosyalarını ilgili klasöre kopyaladıktan
 sonra Ayarlar → "Klasörleri yeniden tara" ile listeye eklenir.
 
-**Önemli not:** `Android/media/<paket>` yolu Android 11+ scoped storage'da
-`Android/data/<paket>`'e göre üçüncü parti dosya yöneticileri tarafından daha
-kolay görülüyor, ama cihaz/üretici farkına göre değişebilir. Bazı
-kullanıcılarda dosya yöneticisinin "sistem/gizli klasörleri göster"
-seçeneğini açması gerekebilir. Planladığınız ayrı dosya yöneticisi
-uygulaması bu sürtünmeyi tamamen ortadan kaldıracaktır.
+**Düzeltme notu:** Erken tasarım aşamasında `Android/media/<paket>/roms`
+yolu planlanmıştı, ama kod Capacitor Filesystem'in `Directory.External`
+seçeneğini kullanıyor ve bu gerçekte `Android/data/<paket>/files` yoluna
+karşılık geliyor — yukarıdaki yol gerçek/doğru olandır. Bu yol izin
+istemeden okunup yazılabiliyor ama bazı stok dosya yöneticileri
+(özellikle Android 11+ telefonlarda) `Android/data` altını gizleyebiliyor;
+TV kutularındaki üçüncü parti dosya yöneticilerinin çoğunda bu kısıtlama
+yok. Planlanan ayrı dosya yöneticisi uygulaması veya uygulama içi bir SAF
+tabanlı "içe aktar" düğmesi bu sürtünmeyi tamamen ortadan kaldıracaktır.
 
 ## Eksik / bir sonraki adımlar
 
@@ -54,8 +57,9 @@ Bu ilk iskelet şunları **içermiyor**, birlikte sırayla ekleyebiliriz:
 2. **TV banner görseli** — `android-res/tv/drawable-xhdpi/tv_banner.png`
    (320×180) eklenmeden TV launcher'da ikon görünmez; `patch-android-tv.js`
    bu dosyayı referans alıyor ama görseli oluşturmuyor.
-3. **Kumanda manuel eşleme ekranı** — otomatik marka algılama var, kullanıcının
-   butonları elle değiştirebileceği bir ekran henüz yok.
+3. ~~Kumanda manuel eşleme ekranı~~ — eklendi (Ayarlar → "Kumanda tuş
+   ataması"). D-pad/analog eksen ataması bu sürümde değiştirilemez, sadece
+   Seç/Geri/Menü/Favori butonları yeniden atanabilir.
 4. **İmzalama sırları** — GitHub Actions workflow'u `ANDROID_SIGNING_KEY`,
    `ANDROID_KEY_ALIAS`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`
    repo secrets'larını bekliyor.
