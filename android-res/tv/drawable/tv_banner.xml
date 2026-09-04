@@ -1,15 +1,13 @@
-// 4) TV banner drawable'ını üretilen Android projesine kopyala.
-// `cap add android` her seferinde projeyi sıfırdan oluşturduğu için bu
-// dosya repo kökünde (android-res/) tutuluyor ve build sırasında buraya
-// kopyalanıyor; android/ klasörünün kendisi repoya commit edilmiyor.
-const bannerSrc = path.join(__dirname, "..", "android-res", "tv", "drawable", "tv_banner.xml");
-const drawableDir = path.join(__dirname, "..", "android", "app", "src", "main", "res", "drawable");
-const bannerDest = path.join(drawableDir, "tv_banner.xml");
-
-if(fs.existsSync(bannerSrc)){
-  fs.mkdirSync(drawableDir, { recursive: true });
-  fs.copyFileSync(bannerSrc, bannerDest);
-  console.log("TV banner drawable kopyalandı: " + bannerDest);
-}else{
-  console.warn("Uyarı: android-res/tv/drawable/tv_banner.xml bulunamadı, banner eklenemedi.");
-}
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path android:fillColor="#0D2C57" android:pathData="M0,0h320v180h-320z" />
+    <path android:fillColor="#1C4A8C" android:fillAlpha="0.55" android:pathData="M0,0h320v90h-320z" />
+    <path android:fillColor="#F3F7FD" android:pathData="M50,60 h60 a12,12 0 0 1 12,12 v56 a12,12 0 0 1 -12,12 h-60 a12,12 0 0 1 -12,-12 v-56 a12,12 0 0 1 12,-12 z" />
+    <path android:fillColor="#0D2C57" android:pathData="M74,60 v20 h6 v-20 z" />
+    <path android:fillColor="#0D2C57" android:pathData="M88,60 v20 h6 v-20 z" />
+    <path android:fillColor="#7FB2FF" android:pathData="M138,96 h132 v4 h-132 z" />
+</vector>
