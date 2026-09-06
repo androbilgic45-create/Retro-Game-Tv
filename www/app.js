@@ -956,6 +956,9 @@ async function launchEmulator(rom, opts){
     overlay.hidden = true;
     return;
   }
+  // GEÇİCİ TEŞHİS: çözülen adresi ekranda göster (siyah ekran sorunu
+  // çözülünce bu satır kaldırılacak).
+  showToast("info", `ROM adresi: ${gameUrl.slice(0, 90)}`);
 
   App._gameStarted = false;
 
