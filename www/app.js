@@ -957,6 +957,8 @@ async function launchEmulator(rom, opts){
     return;
   }
 
+  App._gameStarted = false;
+
   window.EJS_player = "#game";
   window.EJS_core = rom.system.core;
   window.EJS_pathToData = EJS_CDN;
@@ -981,6 +983,7 @@ async function launchEmulator(rom, opts){
   };
 
   window.EJS_onGameStart = function(){
+    App._gameStarted = true;
     Store.addHistory({ systemId: rom.systemId, romPath: rom.romPath, name: rom.name });
     el.emuHint.textContent = "Menü için ekranın üstündeki EmulatorJS çubuğunu kullanın";
   };
@@ -991,6 +994,15 @@ async function launchEmulator(rom, opts){
   const script = document.createElement("script");
   script.src = EJS_CDN + "loader.js";
   document.body.appendChild(script);
+
+  // Oyun makul bir sürede başlamazsa (ROM/çekirdek indirilemedi, CDN'e
+  // erişilemedi, dosya okunamadı vb.) sessizce takılı kalmak yerine olası
+  // nedeni gösteren bir uyarı veriyoruz.
+  setTimeout(() => {
+    if(!overlay.hidden && !App._gameStarted){
+      showToast("warn", "Oyun başlamadı. TV kutunuzun internet bağlantısını kontrol edin (çekirdek dosyaları ilk seferde indiriliyor) veya ROM dosyasının bozuk olmadığından emin olun.");
+    }
+  }, 20000);
 }
 
 function exitEmulator(){
@@ -1165,6 +1177,16 @@ async function init(){
   updateClock();
   App.clockTimer = setInterval(updateClock, 15000);
   initInputs();
+
+  // Sessizce takılıp kalan hataları görünür kılmak için — özellikle
+  // EmulatorJS'in kendi loader.js'i içinde oluşan hatalar konsola düşer ama
+  // TV'de konsol yok; burada en azından bir toast olarak gösteriyoruz.
+  window.addEventListener("error", (e) => {
+    showToast("warn", `Hata: ${e.message || "bilinmeyen"}`);
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    showToast("warn", `Hata: ${(e.reason && e.reason.message) || e.reason || "bilinmeyen"}`);
+  });
 
   await refreshScans();
   renderAll();
