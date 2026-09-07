@@ -226,7 +226,7 @@ const RomScanner = {
       }catch(e){
         // "Zaten var" hatası beklenir ve normaldir; başka bir şeyse kaydet.
         const msg = (e && e.message) || String(e);
-        if(!/already exists|EEXIST/i.test(msg)){
+        if(!/exists|EEXIST/i.test(msg)){
           this.lastErrors.push({ systemId: sys.id, message: msg });
         }
       }
